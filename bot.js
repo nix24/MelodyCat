@@ -1,12 +1,8 @@
-const { Client, GatewayIntentBits } = require("discord.js");
+const { Client, GatewayIntentBits, Collection } = require("discord.js");
 const { Player, useQueue } = require("discord-player");
-const {
-	SpotifyExtractor,
-	SoundCloudExtractor,
-} = require("@discord-player/extractor");
-
+const fs = require("fs");
 require("dotenv").config();
-
+//version discord.js = 14.0.0
 const client = new Client({
 	intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates],
 });
@@ -28,7 +24,6 @@ player.events.on("playerStart", (queue, track) => {
 
 client.on("interactionCreate", async (interaction) => {
 	if (!interaction.isCommand()) return;
-
 	if (interaction.commandName === "mc-play") {
 		const channel = interaction.member.voice.channel;
 		if (!channel)
@@ -58,14 +53,15 @@ client.on("interactionCreate", async (interaction) => {
 			});
 		}
 	}
+
 	//help command
 	if (interaction.commandName === "mc-help") {
 		const helpMessage =
 			"Here are the available commands:\n" +
-			"• `/mc-play <url>`: Plays a music stream from a YouTube link.\n" +
+			"• `/mc-play <url>`: Plays a music stream from an URL or search.\n" +
 			"• `/queue`: Shows the current music queue.\n" +
 			"• `/skip`: Skips the currently playing track.\n" +
-			"• `/pause`: Pauses the music playback.\n" +
+			"• `/pause`: Pauses/resumes the music playback.\n" +
 			"• `/mc-volume <level>`: Adjusts the volume of the music playback.\n" +
 			"• `/mc-playlist-create <name>`: Creates a new playlist.\n" +
 			"• `/mc-pl-add <name> <url>`: Adds a track to a playlist.\n" +
@@ -93,9 +89,6 @@ client.on("interactionCreate", async (interaction) => {
 			console.log(currentTrack.title);
 
 			//loop through the queue and grab the first 10 tracks
-			/**
-			 * grab title, thumbnail, duration, and requested by
-			 */
 			const songs = [];
 			for (let i = 0; i < tracks.length && i < 10; i++) {
 				songs.push(`${i + 1}: ${tracks[i].title} - ${tracks[i].duration}
@@ -110,7 +103,7 @@ client.on("interactionCreate", async (interaction) => {
 				fields: [
 					{
 						name: "🎧 Now Playing 🎧",
-						value: `**${currentTrack.title}** - ${currentTrack.author} - ${currentTrack?.description} ${currentTrack.duration} ${interaction.user}`,
+						value: `**${currentTrack.title}** - ${currentTrack.author} -  ${currentTrack.duration} by ${interaction.user}`,
 					},
 				],
 			};
@@ -136,7 +129,10 @@ client.on("interactionCreate", async (interaction) => {
 		await interaction.deferReply();
 		try {
 			queue.node.setPaused(!queue.node.isPaused()); //isPaused() returns true if that player is already paused
-			await interaction.followUp("Paused the music!");
+			//interaction.followUp changes based on whether the player is paused or not
+			await interaction.followUp(
+				queue.node.isPaused() ? "Paused the music!" : "Resumed the music!"
+			);
 		} catch (error) {
 			console.error(error);
 			await interaction.followUp({
@@ -216,7 +212,9 @@ client.on("interactionCreate", async (interaction) => {
 					await interaction.followUp("Invalid loop mode!");
 					break;
 			}
-			await interaction.followUp(`Loop mode set to ${loopMode}`);
+			await interaction.followUp(
+				`Loop mode set to ${interaction.options.getString("mode")}`
+			);
 		} catch (error) {
 			console.error(error);
 			await interaction.followUp({
